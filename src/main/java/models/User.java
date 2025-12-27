@@ -2,38 +2,24 @@ package models;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.List;
-
-@Getter
-@Setter
+@Data
+@NoArgsConstructor
 @JsonTypeInfo(
-    use = JsonTypeInfo.Id.NAME,
-    include = JsonTypeInfo.As.EXISTING_PROPERTY,
-    property = "role",
-    visible = true
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.EXISTING_PROPERTY,
+        property = "role",
+        visible = true
 )
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = Reporter.class, name = "REPORTER"),
-    @JsonSubTypes.Type(value = Developer.class, name = "DEVELOPER"),
-    @JsonSubTypes.Type(value = Manager.class, name = "MANAGER")
+        @JsonSubTypes.Type(value = Manager.class, name = "MANAGER"),
+        @JsonSubTypes.Type(value = Developer.class, name = "DEVELOPER"),
+        @JsonSubTypes.Type(value = Reporter.class, name = "REPORTER")
 })
 public abstract class User {
     private String username;
-    private Role role;
     private String email;
-    private List<String> notifications = new ArrayList<>();
-
-    public void addNotification(String message) {
-        this.notifications.add(message);
-    }
-
-    public List<String> getAndClearNotifications() {
-        List<String> current = new ArrayList<>(notifications);
-        notifications.clear();
-        return current;
-    }
+    private Role role;
 }

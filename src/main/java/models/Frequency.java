@@ -1,8 +1,17 @@
 package models;
 
+import lombok.Getter;
+
+@Getter
 public enum Frequency {
-    RARE,
-    OCCASIONAL,
-    FREQUENT,
-    ALWAYS
+    RARE(1),
+    OCCASIONAL(2),
+    FREQUENT(3),
+    ALWAYS(4);
+
+    private final int value;
+
+    Frequency(int value) {
+        this.value = value;
+    }
 }
