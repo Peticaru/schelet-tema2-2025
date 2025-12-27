@@ -1,8 +1,12 @@
 package main;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import commands.*;
+import models.User;
+import services.TicketSystem;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,8 +23,8 @@ public class App {
 
     private static final String INPUT_USERS_FIELD = "input/database/users.json";
 
-    private static final ObjectWriter WRITER =
-            new ObjectMapper().writer().withDefaultPrettyPrinter();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectWriter WRITER = MAPPER.writer().withDefaultPrettyPrinter();
 
     /**
      * Runs the application: reads commands from an input file,
@@ -30,21 +34,38 @@ public class App {
      * @param outputPath path to the file where results should be written
      */
     public static void run(final String inputPath, final String outputPath) {
-        // feel free to change this if needed
-        // however keep 'outputs' variable name to be used for writing
         List<ObjectNode> outputs = new ArrayList<>();
+        TicketSystem system = new TicketSystem();
 
-        /*
-            TODO 1 :
-            Load initial user data and commands. we strongly recommend using jackson library.
-            you can use the reading from hw1 as a reference.
-            however you can use some of the more advanced features of
-            jackson library, available here: https://www.baeldung.com/jackson-annotations
-        */
 
-        // TODO 2: process commands.
 
-        // TODO 3: create objectnodes for output, add them to outputs list.
+        try {
+            // Load initial user data
+            List<User> userList = MAPPER.readValue(new File(INPUT_USERS_FIELD), new TypeReference<>() {});
+            for (User user : userList) {
+                system.getUsers().put(user.getUsername(), user);
+            }
+
+            // Load commands
+            List<CommandInput> commandInputs = MAPPER.readValue(new File(inputPath), new TypeReference<>() {});
+
+            for (CommandInput ci : commandInputs) {
+                if (system.isInvestorsLost()) break;
+
+                system.updateTime(ci.getTimestamp());
+                
+                Command command = createCommand(ci);
+                if (command != null) {
+                    ObjectNode result = command.execute(system);
+                    if (result != null) {
+                        outputs.add(result);
+                    }
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         // DO NOT CHANGE THIS SECTION IN ANY WAY
         try {
@@ -53,6 +74,33 @@ public class App {
             WRITER.withDefaultPrettyPrinter().writeValue(outputFile, outputs);
         } catch (IOException e) {
             System.out.println("error writing to output file: " + e.getMessage());
+        }
+    }
+
+    private static Command createCommand(CommandInput ci) {
+        switch (ci.getCommand()) {
+            case "lostInvestors": return new LostInvestorsCommand(ci);
+            case "startTestingPhase": return new StartTestingPhaseCommand(ci);
+            case "reportTicket": return new ReportTicketCommand(ci);
+            case "viewTickets": return new ViewTicketsCommand(ci);
+            case "addComment": return new AddCommentCommand(ci);
+            case "undoAddComment": return new UndoAddCommentCommand(ci);
+            case "createMilestone": return new CreateMilestoneCommand(ci);
+            case "viewMilestones": return new ViewMilestonesCommand(ci);
+            case "assignTicket": return new AssignTicketCommand(ci);
+            case "undoAssignTicket": return new UndoAssignTicketCommand(ci);
+            case "viewAssignedTickets": return new ViewAssignedTicketsCommand(ci);
+            case "changeStatus": return new ChangeStatusCommand(ci);
+            case "undoChangeStatus": return new UndoChangeStatusCommand(ci);
+            case "viewNotifications": return new ViewNotificationsCommand(ci);
+            case "viewTicketHistory": return new ViewTicketHistoryCommand(ci);
+            case "generateTicketRiskReport": return new GenerateTicketRiskReportCommand(ci);
+            case "generateCustomerImpactReport": return new GenerateCustomerImpactReportCommand(ci);
+            case "generateResolutionEfficiencyReport": return new GenerateResolutionEfficiencyReportCommand(ci);
+            case "appStabilityReport": return new AppStabilityReportCommand(ci);
+            case "generatePerformanceReport": return new GeneratePerformanceReportCommand(ci);
+            case "search": return new SearchCommand(ci);
+            default: return null;
         }
     }
 }
