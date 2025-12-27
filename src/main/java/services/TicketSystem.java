@@ -57,73 +57,57 @@ public class TicketSystem {
             boolean currentlyBlocked = isMilestoneBlocked(m);
             boolean previouslyBlocked = blockedMilestones.contains(mName);
 
-            // milestone became blocked
+            // Gestionare tranzitie Blocat
             if (currentlyBlocked && !previouslyBlocked) {
                 blockedMilestones.add(mName);
-                if (m.getTickets() != null) {
-                    for (Integer tid : m.getTickets()) {
-                        Ticket t = tickets.get(tid);
-                        if (t == null) continue;
-                        if (t.getStatus() != Status.CLOSED && t.getStatus() != Status.BLOCKED) {
-                            t.setStatus(Status.BLOCKED);
-                            t.addHistoryEntry(date, "SYSTEM", "MILESTONE_BLOCKED",
-                                    "Milestone '" + mName + "' became blocked");
-                        }
-                    }
-                }
+                updateTicketsStatusInMilestone(m, Status.BLOCKED, date, "Milestone '" + mName + "' became blocked");
                 notifyDevs(m, "MILESTONE_BLOCKED: " + mName);
-                continue; // do not apply escalations while blocked
+                continue;
             }
 
-            // milestone became unblocked
+            // Gestionare tranzitie Deblocat
             if (!currentlyBlocked && previouslyBlocked) {
                 blockedMilestones.remove(mName);
                 handleUnblocking(m);
             }
 
-            // skip escalations for blocked milestones
+            // Conform cerintei, regulile de escaladare nu se aplica daca milestone-ul este blocat
             if (currentlyBlocked) continue;
 
-            // 3-day priority escalation
-            if (m.getTickets() != null) {
-                for (Integer tid : m.getTickets()) {
-                    Ticket t = tickets.get(tid);
-                    if (t == null) continue;
-                    Status s = t.getStatus();
-                    if (s == Status.OPEN || s == Status.IN_PROGRESS) {
-                        if (t.getCreatedAt() == null) continue;
-                        LocalDate created;
-                        try {
-                            created = LocalDate.parse(t.getCreatedAt());
-                        } catch (DateTimeParseException ex) {
-                            continue;
-                        }
-                        int daysBetween = (int) ChronoUnit.DAYS.between(created, now) + 1;
-                        if (daysBetween >= 3) {
-                            int escalationsDue = daysBetween / 3;
-                            long previousEsc = t.getHistory().stream()
-                                    .map(h -> h.getAction())
-                                    .filter(a -> a != null && a.startsWith("PRIORITY_ESCALATION"))
-                                    .count();
-                            int toApply = escalationsDue - (int) previousEsc;
-                            for (int i = 0; i < toApply; i++) {
-                                if (t.getBusinessPriority() == Priority.CRITICAL) break;
-                                Priority next = t.getBusinessPriority().next();
-                                t.setBusinessPriority(next);
-                                t.addHistoryEntry(date, "SYSTEM", "PRIORITY_ESCALATION",
-                                        "Priority increased due to time in milestone '" + mName + "' to " + next);
-                                // if assigned developer can no longer handle priority -> auto-unassign
-                                if (t.getAssignedTo() != null) {
-                                    User u = users.get(t.getAssignedTo());
-                                    if (u instanceof Developer) {
-                                        Developer dev = (Developer) u;
-                                        if (!canAccess(dev, t)) {
-                                            t.setAssignedTo(null);
-                                            t.setStatus(Status.OPEN);
-                                            t.addHistoryEntry(date, "SYSTEM", "AUTO_UNASSIGN",
-                                                    "Ticket unassigned due to priority exceeding developer seniority");
-                                        }
-                                    }
+            // 1. Escaladarea priorității la fiecare 3 zile (Special Mention #1)
+            // Calculul se face de la data CREĂRII MILESTONE-ULUI
+            if (m.getCreatedAt() != null && m.getTickets() != null) {
+                LocalDate mCreated = LocalDate.parse(m.getCreatedAt());
+                // Formula daysBetween = date2 - date1 + 1
+                long daysSinceMilestoneCreated = ChronoUnit.DAYS.between(mCreated, now) + 1;
+
+                if (daysSinceMilestoneCreated >= 3) {
+                    int expectedEscalations = (int) (daysSinceMilestoneCreated / 3);
+
+                    for (Integer tid : m.getTickets()) {
+                        Ticket t = tickets.get(tid);
+                        if (t == null || t.getStatus() == Status.CLOSED || t.getStatus() == Status.RESOLVED) continue;
+
+                        // Numărăm câte escaladări de tip SYSTEM au fost deja aplicate acestui tichet
+                        long appliedEscalations = t.getHistory().stream()
+                                .filter(h -> "PRIORITY_ESCALATION".equals(h.getAction()))
+                                .count();
+
+                        while (appliedEscalations < expectedEscalations && t.getBusinessPriority() != Priority.CRITICAL) {
+                            Priority next = t.getBusinessPriority().next();
+                            t.setBusinessPriority(next);
+                            t.addHistoryEntry(date, "SYSTEM", "PRIORITY_ESCALATION",
+                                    "Priority increased due to time in milestone '" + mName + "' to " + next);
+                            appliedEscalations++;
+
+                            // Verificare: dacă noul nivel de prioritate depășește senioritatea dev-ului (Edge Case)
+                            if (t.getAssignedTo() != null) {
+                                User u = users.get(t.getAssignedTo());
+                                if (u instanceof Developer && !canAccess((Developer) u, t)) {
+                                    t.setAssignedTo(null);
+                                    t.setStatus(Status.OPEN);
+                                    t.addHistoryEntry(date, "SYSTEM", "AUTO_UNASSIGN",
+                                            "Ticket unassigned: priority " + t.getBusinessPriority() + " exceeds dev seniority");
                                 }
                             }
                         }
@@ -131,34 +115,51 @@ public class TicketSystem {
                 }
             }
 
-            // 1 day before dueDate escalate remaining tickets to CRITICAL
+            // 2. Regula "O zi înainte de dueDate" (Special Mention #2)
             if (m.getDueDate() != null) {
-                try {
-                    LocalDate due = LocalDate.parse(m.getDueDate());
-                    LocalDate dayBefore = due.minusDays(1);
-                    if (now.equals(dayBefore)) {
-                        boolean anyEsc = false;
-                        if (m.getTickets() != null) {
-                            for (Integer tid : m.getTickets()) {
-                                Ticket t = tickets.get(tid);
-                                if (t == null) continue;
-                                if (t.getStatus() == Status.OPEN || t.getStatus() == Status.IN_PROGRESS) {
-                                    if (t.getBusinessPriority() != Priority.CRITICAL) {
-                                        t.setBusinessPriority(Priority.CRITICAL);
-                                        t.addHistoryEntry(date, "SYSTEM", "DEADLINE_IMMINENT_ESCALATION",
-                                                "Escalated to CRITICAL due to imminent deadline for milestone '" + mName + "'");
-                                        anyEsc = true;
-                                    }
-                                }
-                            }
+                LocalDate due = LocalDate.parse(m.getDueDate());
+                if (now.equals(due.minusDays(1))) {
+                    boolean notified = false;
+                    for (Integer tid : m.getTickets()) {
+                        Ticket t = tickets.get(tid);
+                        if (t == null || t.getStatus() == Status.CLOSED || t.getStatus() == Status.RESOLVED) continue;
+
+                        if (t.getBusinessPriority() != Priority.CRITICAL) {
+                            t.setBusinessPriority(Priority.CRITICAL);
+                            t.addHistoryEntry(date, "SYSTEM", "DEADLINE_IMMINENT_ESCALATION", "Escalated to CRITICAL - 1 day before due date");
+                            notified = true;
                         }
-                        if (anyEsc) notifyDevs(m, "DEADLINE_IMMINENT_ESCALATION: " + mName);
                     }
-                } catch (DateTimeParseException ex) {
-                    // ignore malformed dates
+                    if (notified) notifyDevs(m, "DEADLINE_IMMINENT_ESCALATION: " + mName);
                 }
             }
         }
+    }
+
+    // Helper pentru a curăța codul principal
+    private void updateTicketsStatusInMilestone(Milestone m, Status status, String date, String msg) {
+        if (m.getTickets() == null) return;
+        for (Integer tid : m.getTickets()) {
+            Ticket t = tickets.get(tid);
+            if (t != null && t.getStatus() != Status.CLOSED) {
+                t.setStatus(status);
+                t.addHistoryEntry(date, "SYSTEM", "STATUS_CHANGED", msg);
+            }
+        }
+    }
+
+    public double normalizeScore(double baseScore, double maxValue) {
+        if (maxValue == 0) return 0.0;
+        double score = Math.min(100.0, (baseScore * 100.0) / maxValue);
+        return Math.round(score * 100.0) / 100.0; 
+    }
+
+    public double calculateAverage(List<Double> scores) {
+        double average = scores.stream()
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElse(0.0);
+        return Math.round(average * 100.0) / 100.0;
     }
 
     private boolean isMilestoneBlocked(Milestone milestone) {
@@ -260,13 +261,9 @@ public class TicketSystem {
     }
 
     private void notifyDevs(Milestone milestone, String message) {
-        if (milestone == null || milestone.getTickets() == null) return;
-        for (Integer tid : milestone.getTickets()) {
-            Ticket t = tickets.get(tid);
-            if (t == null) continue;
-            if (t.getAssignedTo() != null) {
-                t.addHistoryEntry(currentDate != null ? currentDate : "", "SYSTEM", "NOTIFICATION", message);
-            }
+        if (milestone == null || milestone.getAssignedDevs() == null) return;
+        for (String devUsername : milestone.getAssignedDevs()) {
+            notifyUser(devUsername, message);
         }
     }
 
@@ -305,6 +302,14 @@ public class TicketSystem {
         }
     }
 
+    private void notifyUser(String username, String message) {
+        User user = users.get(username);
+        if (user != null) {
+            user.addNotification(message);
+        }
+    }
+
+
     private void handleUnblocking(Milestone milestone) {
         if (milestone == null) return;
         if (isMilestoneBlocked(milestone)) return;
@@ -316,6 +321,7 @@ public class TicketSystem {
         } catch (DateTimeParseException e) {
             return;
         }
+
 
         // If unblocked after dueDate -> escalate remaining to CRITICAL and notify
         if (milestone.getDueDate() != null) {

@@ -5,6 +5,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 @JsonTypeInfo(
@@ -22,4 +25,15 @@ public abstract class User {
     private String username;
     private Role role;
     private String email;
+    private List<String> notifications = new ArrayList<>();
+
+    public void addNotification(String message) {
+        this.notifications.add(message);
+    }
+
+    public List<String> getAndClearNotifications() {
+        List<String> current = new ArrayList<>(notifications);
+        notifications.clear();
+        return current;
+    }
 }
