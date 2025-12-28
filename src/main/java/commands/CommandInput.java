@@ -1,55 +1,36 @@
 package commands;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import models.BusinessValue;
-import models.CustomerDemand;
-import models.Frequency;
-import models.Severity;
 
-@Data
-@NoArgsConstructor
+import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CommandInput {
-    // --- Câmpuri Generale ---
     private String command;
     private String username;
-    private String timestamp; // Jackson îl va citi ca String, noi îl parsam când avem nevoie
+    private String timestamp;
+    private JsonNode params;
 
-    // --- Câmpuri pentru Tichete (reportTicket) ---
-    private String type;
-    private String title;
-    private String description;
-    private BusinessValue businessPriority; // sau Priority, verifică enum-ul
-    private String reportedBy;
-
-    // Specifice BUG
-    private String expectedBehavior;
-    private String actualBehavior;
-    private Frequency frequency;
-    private Severity severity;
-    private String environment;
-    private Integer errorCode; // Integer ca să poată fi null
-
-    // Specifice FEATURE_REQUEST
-    private BusinessValue businessValue;
-    private CustomerDemand customerDemand;
-
-    // Specifice UI_FEEDBACK
-    private String uiElementId;
-    private Integer usabilityScore;
-    private String screenshotUrl;
-    private String suggestedFix;
-
-    // --- Câmpuri pentru Alte Comenzi ---
-    private Integer ticketId; // Pentru viewTicket, addComment, etc.
-    private String status;    // Pentru changeStatus
-
-    // --- Câmpuri pentru Comentarii ---
-    private String comment;   // Sau "content" în funcție de input JSON
-
-    // --- Câmpuri pentru Milestone ---
-    private String milestoneName;
+    // --- Fields for Milestone ---
+    private String name;        // for createMilestone
     private String dueDate;
-    // Jackson poate mapa un array JSON direct într-o Listă
-    // private List<Integer> ticketIds;
+
+    // JSON input uses "tickets", NOT "ticketIds"
+    private List<Integer> tickets;
+
+    private List<String> blockingFor;
+    private List<String> assignedDevs;
+
+    private String comment;
+
+    private Integer ticketID;
+
+
 }

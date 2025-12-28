@@ -5,6 +5,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @JsonTypeInfo(
@@ -22,4 +25,15 @@ public abstract class User {
     private String username;
     private String email;
     private Role role;
+
+    // List to store notifications
+    private List<String> notifications = new ArrayList<>();
+
+    /**
+     * Adds a new notification to the user's list.
+     * @param notification The message string to add.
+     */
+    public void addNotification(String notification) {
+        this.notifications.add(notification);
+    }
 }

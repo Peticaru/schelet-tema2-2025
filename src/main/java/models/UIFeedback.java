@@ -8,7 +8,7 @@ import lombok.Setter;
 public class UIFeedback extends Ticket {
     private String uiElementId;
     private BusinessValue businessValue;
-    private int usabilityScore;
+    private Integer usabilityScore;
     private String screenshotUrl;
     private String suggestedFix;
 }

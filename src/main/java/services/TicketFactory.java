@@ -1,64 +1,65 @@
 package services;
 
-import commands.CommandInput;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import models.*;
 
 public class TicketFactory {
+    private static final ObjectMapper mapper = new ObjectMapper();
 
-    public static Ticket createTicket(CommandInput input, int id) {
-        String type = input.getType();
-
+    public static Ticket createTicket(JsonNode params, int id, String timestamp) {
+        String type = params.get("type").asText();
         Ticket ticket;
+
+        // Create specific instance
         switch (type) {
             case "BUG":
-                ticket = mapBug(input);
+                Bug bug = new Bug();
+                if (params.has("expectedBehavior")) bug.setExpectedBehavior(params.get("expectedBehavior").asText());
+                if (params.has("actualBehavior")) bug.setActualBehavior(params.get("actualBehavior").asText());
+                if (params.has("frequency")) bug.setFrequency(Frequency.valueOf(params.get("frequency").asText()));
+                if (params.has("severity")) bug.setSeverity(Severity.valueOf(params.get("severity").asText()));
+                if (params.has("environment")) bug.setEnvironment(params.get("environment").asText());
+                if (params.has("errorCode")) bug.setErrorCode(params.get("errorCode").asInt());
+                ticket = bug;
                 break;
             case "FEATURE_REQUEST":
-                ticket = mapFeatureRequest(input);
+                FeatureRequest fr = new FeatureRequest();
+                if (params.has("businessValue")) fr.setBusinessValue(BusinessValue.valueOf(params.get("businessValue").asText()));
+                if (params.has("customerDemand")) fr.setCustomerDemand(CustomerDemand.valueOf(params.get("customerDemand").asText()));
+                ticket = fr;
                 break;
             case "UI_FEEDBACK":
-                ticket = mapUIFeedback(input);
+                UIFeedback ui = new UIFeedback();
+                if (params.has("uiElementId")) ui.setUiElementId(params.get("uiElementId").asText());
+                if (params.has("businessValue")) ui.setBusinessValue(BusinessValue.valueOf(params.get("businessValue").asText()));
+                if (params.has("usabilityScore")) ui.setUsabilityScore(params.get("usabilityScore").asInt());
+                if (params.has("screenshotUrl")) ui.setScreenshotUrl(params.get("screenshotUrl").asText());
+                if (params.has("suggestedFix")) ui.setSuggestedFix(params.get("suggestedFix").asText());
+                ticket = ui;
                 break;
             default:
                 throw new IllegalArgumentException("Unknown ticket type: " + type);
         }
 
+        // Set common fields
         ticket.setId(id);
         ticket.setType(type);
-        ticket.setTitle(input.getTitle());
-        ticket.setDescription(input.getDescription());
+        ticket.setCreatedAt(timestamp);
+        ticket.setStatus(Status.OPEN); // Initial status
 
-        ticket.setReportedBy(input.getReportedBy());
-        ticket.setCreatedAt(input.getTimestamp());
-        ticket.setStatus(Status.OPEN); // Default status
+        if (params.has("title")) ticket.setTitle(params.get("title").asText());
+        if (params.has("description")) ticket.setDescription(params.get("description").asText());
+        if (params.has("expertiseArea")) ticket.setExpertiseArea(ExpertiseArea.valueOf(params.get("expertiseArea").asText()));
+        if (params.has("businessPriority")) ticket.setBusinessPriority(Priority.valueOf(params.get("businessPriority").asText()));
+
+        // Handling reportedBy
+        if (params.has("reportedBy")) {
+            ticket.setReportedBy(params.get("reportedBy").asText());
+        } else {
+            ticket.setReportedBy(""); // Default empty for anonymous if missing
+        }
 
         return ticket;
-    }
-
-    private static Bug mapBug(CommandInput input) {
-        Bug bug = new Bug();
-        bug.setExpectedBehavior(input.getExpectedBehavior());
-        bug.setActualBehavior(input.getActualBehavior());
-        bug.setSeverity(input.getSeverity());
-        bug.setFrequency(input.getFrequency());
-        bug.setEnvironment(input.getEnvironment());
-        bug.setErrorCode(input.getErrorCode());
-        return bug;
-    }
-
-    private static FeatureRequest mapFeatureRequest(CommandInput input) {
-        FeatureRequest fr = new FeatureRequest();
-        fr.setBusinessValue(input.getBusinessValue());
-        fr.setCustomerDemand(input.getCustomerDemand());
-        return fr;
-    }
-
-    private static UIFeedback mapUIFeedback(CommandInput input) {
-        UIFeedback ui = new UIFeedback();
-        ui.setUiElementId(input.getUiElementId());
-        ui.setUsabilityScore(input.getUsabilityScore());
-        ui.setScreenshotUrl(input.getScreenshotUrl());
-        ui.setSuggestedFix(input.getSuggestedFix());
-        return ui;
     }
 }

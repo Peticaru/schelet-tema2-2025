@@ -1,11 +1,11 @@
 package models;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
-@EqualsAndHashCode(callSuper = true)
-public class Bug extends models.Ticket {
+@Getter
+@Setter
+public class Bug extends Ticket {
     private String expectedBehavior;
     private String actualBehavior;
     private Frequency frequency;

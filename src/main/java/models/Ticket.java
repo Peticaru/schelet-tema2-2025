@@ -1,30 +1,34 @@
 package models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+import java.util.ArrayList;
+import java.util.List;
 
-@Data
-@NoArgsConstructor
+@Getter
+@Setter
 public abstract class Ticket {
     private int id;
-    private String type; // BUG, FEATURE_REQUEST, etc.
+    private String type;
     private String title;
     private String description;
-
-    // Folosim String pentru simplitate la output,
-    // sau Enum dacă vrei logică strictă. Recomand Enum convertit la String.
+    private Priority businessPriority;
     private Status status;
-    private Priority businessPriority; // LOW, MEDIUM, HIGH, CRITICAL
-
+    private ExpertiseArea expertiseArea;
     private String reportedBy;
-    private String createdAt; // Timestamp-ul creării
+    private String createdAt;
+    private String assignedTo;
+    private String assignedAt;
+    private String solvedAt;
 
-    // Câmpuri care se schimbă pe parcurs
-    private String assignedTo; // Username-ul developer-ului
-    private String milestone;  // Numele milestone-ului
+    private List<Comment> comments = new ArrayList<>();
 
-    // Câmpuri ajutătoare (nu neapărat în JSON output, dar utile logic)
-    @JsonIgnore
-    private boolean active = true;
+    // Scoatem @JsonIgnore pentru că avem nevoie de el la viewTicketHistory,
+    // dar îl vom gestiona manual în CommandRunner pentru viewTickets
+    private List<HistoryEntry> history = new ArrayList<>();
+
+    public void addHistoryEntry(HistoryEntry entry) {
+        history.add(entry);
+    }
 }
