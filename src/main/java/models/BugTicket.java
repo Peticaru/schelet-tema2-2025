@@ -3,9 +3,10 @@ package models;
 import lombok.Getter;
 import lombok.Setter;
 
+
 @Getter
 @Setter
-public class Bug extends Ticket {
+public class BugTicket extends Ticket {
     private String expectedBehavior;
     private String actualBehavior;
     private Frequency frequency;

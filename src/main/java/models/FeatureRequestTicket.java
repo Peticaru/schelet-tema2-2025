@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class FeatureRequest extends Ticket {
+public class FeatureRequestTicket extends Ticket {
     private BusinessValue businessValue;
     private CustomerDemand customerDemand;
 }

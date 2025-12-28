@@ -6,8 +6,15 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Developer extends User {
-    private String hireDate;
-    private Seniority seniority;
     private ExpertiseArea expertiseArea;
-    private double lastPerformanceScore = 0.0; // Se actualizează la fiecare raport
+    private Seniority seniority;
+    private String hireDate;
+
+    private double performanceScore = 0.0;
+
+    public Developer() {
+        super();
+        // Setăm rolul explicit, deși Jackson îl va seta automat din JSON
+        this.setRole(Role.DEVELOPER);
+    }
 }

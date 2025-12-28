@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class UIFeedback extends Ticket {
+public class UiFeedbackTicket extends Ticket {
     private String uiElementId;
     private BusinessValue businessValue;
     private Integer usabilityScore;

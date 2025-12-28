@@ -1,15 +1,16 @@
 package models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Data
-@NoArgsConstructor
+@Getter
+@Setter
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.EXISTING_PROPERTY,
@@ -17,23 +18,23 @@ import java.util.List;
         visible = true
 )
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = Manager.class, name = "MANAGER"),
         @JsonSubTypes.Type(value = Developer.class, name = "DEVELOPER"),
-        @JsonSubTypes.Type(value = Reporter.class, name = "REPORTER")
+        @JsonSubTypes.Type(value = Manager.class, name = "MANAGER"),
+        @JsonSubTypes.Type(value = User.class, name = "REPORTER")
 })
-public abstract class User {
+public class User {
     private String username;
     private String email;
     private Role role;
 
-    // List to store notifications
+    @JsonIgnore
     private List<String> notifications = new ArrayList<>();
 
-    /**
-     * Adds a new notification to the user's list.
-     * @param notification The message string to add.
-     */
-    public void addNotification(String notification) {
-        this.notifications.add(notification);
+    public void addNotification(String message) {
+        this.notifications.add(message);
+    }
+
+    public void clearNotifications() {
+        this.notifications.clear();
     }
 }

@@ -14,4 +14,7 @@ public enum BusinessValue {
     BusinessValue(int value) {
         this.value = value;
     }
+    public int toScore() {
+        return this.value;
+    }
 }

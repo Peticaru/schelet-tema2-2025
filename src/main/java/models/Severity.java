@@ -13,4 +13,7 @@ public enum Severity {
     Severity(int value) {
         this.value = value;
     }
+    public int toScore() {
+        return this.value;
+    }
 }

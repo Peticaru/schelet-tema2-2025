@@ -32,5 +32,5 @@ public class CommandInput {
 
     private Integer ticketID;
 
-
+    private JsonNode filters;
 }
