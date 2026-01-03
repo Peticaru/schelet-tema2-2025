@@ -35,6 +35,10 @@ public class TicketSystem {
 
     private Set<String> blockedMilestones = new HashSet<>();
 
+    private List<Observer> observers = new ArrayList<>();
+
+
+
     public void reset() {
         this.users.clear();
         this.tickets.clear();
@@ -221,14 +225,6 @@ public class TicketSystem {
         return false;
     }
 
-    // Facem metoda publică pentru acces din CommandRunner (notificare la creare)
-    public void notifyDevs(Milestone milestone, String message) {
-        if (milestone == null || milestone.getAssignedDevs() == null) return;
-        for (String devUsername : milestone.getAssignedDevs()) {
-            User user = users.get(devUsername);
-            if (user != null) user.addNotification(message);
-        }
-    }
 
     private void handleUnblocking(Milestone milestone) {
         if (milestone == null) return;
@@ -265,6 +261,16 @@ public class TicketSystem {
 
         if (overdue) {
             notifyDevs(milestone, "Milestone " + milestone.getName() + " was unblocked after due date. All active tickets are now CRITICAL.");
+        }
+    }
+
+    public void attach(Observer o) { observers.add(o); }
+    public void detach(Observer o) { observers.remove(o); }
+
+    // Generic notification loop
+    public void notifyObservers(String message) {
+        for (Observer o : observers) {
+            o.update(message);
         }
     }
 
