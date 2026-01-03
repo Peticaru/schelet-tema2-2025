@@ -2,6 +2,7 @@ package models;
 
 import lombok.Getter;
 import lombok.Setter;
+import visitor.Visitor;
 
 
 @Getter
@@ -13,4 +14,9 @@ public class BugTicket extends Ticket {
     private Severity severity;
     private String environment;
     private Integer errorCode;
+
+    @Override
+    public void accept(Visitor v) {
+        v.visit(this);
+    }
 }

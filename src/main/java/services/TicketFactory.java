@@ -11,7 +11,6 @@ public class TicketFactory {
         String type = params.get("type").asText();
         Ticket ticket;
 
-        // Create specific instance
         switch (type) {
             case "BUG":
                 BugTicket bug = new BugTicket();
@@ -19,7 +18,7 @@ public class TicketFactory {
                 if (params.has("actualBehavior")) bug.setActualBehavior(params.get("actualBehavior").asText());
                 if (params.has("frequency")) bug.setFrequency(Frequency.valueOf(params.get("frequency").asText()));
                 if (params.has("severity")) bug.setSeverity(Severity.valueOf(params.get("severity").asText()));
-                if (params.has("environment")) bug.setEnvironment(params.get("environment").asText());
+                if (params.has("environment")) bug.setEnvironment(params .get("environment").asText());
                 if (params.has("errorCode")) bug.setErrorCode(params.get("errorCode").asInt());
                 ticket = bug;
                 break;
@@ -31,6 +30,7 @@ public class TicketFactory {
                 break;
             case "UI_FEEDBACK":
                 UiFeedbackTicket ui = new UiFeedbackTicket();
+
                 if (params.has("uiElementId")) ui.setUiElementId(params.get("uiElementId").asText());
                 if (params.has("businessValue")) ui.setBusinessValue(BusinessValue.valueOf(params.get("businessValue").asText()));
                 if (params.has("usabilityScore")) ui.setUsabilityScore(params.get("usabilityScore").asInt());
