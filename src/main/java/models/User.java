@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.Getter;
 import lombok.Setter;
-import services.Observer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +22,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = Manager.class, name = "MANAGER"),
         @JsonSubTypes.Type(value = User.class, name = "REPORTER")
 })
-public class User implements Observer {
+public class User  {
     private String username;
     private String email;
     private Role role;
@@ -39,9 +38,5 @@ public class User implements Observer {
         this.notifications.clear();
     }
 
-    @Override
-    public void update(String message) {
-        this.notifications.add(message);
-        // You could also add logic here to print to console or send an email
-    }
+
 }

@@ -28,6 +28,8 @@ public class ViewTicketHistory extends BaseCommand {
             userTickets.sort(Comparator.comparingInt(Ticket::getId));
         }
 
+
+
         ObjectNode res = mapper.createObjectNode();
         res.put("command", "viewTicketHistory");
         res.put("username", user.getUsername());

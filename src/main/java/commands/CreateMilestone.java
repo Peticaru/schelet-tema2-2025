@@ -14,7 +14,7 @@ public class CreateMilestone extends BaseCommand {
             return;
         }
         if (user.getRole() != Role.MANAGER) {
-            addError(outputs, input.getCommand(), input.getUsername(), "The user does not have permission to execute this command: required role MANAGER; user role " + user.getRole(), input.getTimestamp());
+            addError(outputs, input.getCommand(), input.getUsername(), "The user does not have permission to execute this command: required role MANAGER; user role " + user.getRole() + ".", input.getTimestamp());
             return;
         }
         if (input.getTickets() != null) {

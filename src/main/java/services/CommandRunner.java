@@ -72,6 +72,9 @@ public class CommandRunner {
         }
 
         BaseCommand command = commandRegistry.get(input.getCommand());
+        if (command == null) {
+            return;
+        }
         command.execute(system, input, user, outputs);
     }
 
