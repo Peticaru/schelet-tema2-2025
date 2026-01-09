@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.*;
 import services.TicketSystem;
-import utils.Utils;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -53,27 +52,31 @@ public class Search extends BaseCommand {
         return result;
     }
 
-    // --- NOTIFICATIONS ---
+    // --- HELPER MATCHING WORDS ---
     private List<String> getMatchingWords(Ticket t, List<String> keywords) {
         Set<String> matched = new HashSet<>();
+        // Concatenăm titlul și descrierea pentru căutare (safe null check)
         String text = (t.getTitle() + " " + (t.getDescription() == null ? "" : t.getDescription())).toLowerCase();
+
         for (String k : keywords) {
             if (text.contains(k.toLowerCase())) matched.add(k);
         }
         List<String> result = new ArrayList<>(matched);
-        Collections.sort(result);
+        Collections.sort(result); // Sortare alfabetică a cuvintelor găsite
         return result;
     }
-
 
     private List<Ticket> searchTickets(TicketSystem system, User user, JsonNode filters) {
         List<Ticket> scope = new ArrayList<>();
         if (user.getRole() == Role.MANAGER) {
             scope = new ArrayList<>(system.getTickets().values());
         } else if (user.getRole() == Role.DEVELOPER) {
-            List<Milestone> devMilestones = system.getMilestones().stream().filter(m -> m.getAssignedDevs().contains(user.getUsername())).collect(Collectors.toList());
+            List<Milestone> devMilestones = system.getMilestones().stream()
+                    .filter(m -> m.getAssignedDevs() != null && m.getAssignedDevs().contains(user.getUsername()))
+                    .collect(Collectors.toList());
             Set<Integer> validIds = new HashSet<>();
-            for (Milestone m : devMilestones) validIds.addAll(m.getTickets());
+            for (Milestone m : devMilestones) if(m.getTickets() != null) validIds.addAll(m.getTickets());
+
             for (Ticket t : system.getTickets().values()) {
                 if (validIds.contains(t.getId()) && t.getStatus() == Status.OPEN) scope.add(t);
             }
@@ -83,9 +86,11 @@ public class Search extends BaseCommand {
             scope.sort(Comparator.comparing(Ticket::getCreatedAt).thenComparingInt(Ticket::getId));
             return scope;
         }
+
         return scope.stream().filter(t -> {
             if (filters.has("businessPriority") && !t.getBusinessPriority().toString().equals(filters.get("businessPriority").asText())) return false;
             if (filters.has("type") && !t.getType().equals(filters.get("type").asText())) return false;
+
             if (filters.has("createdAfter")) {
                 LocalDate tDate = LocalDate.parse(t.getCreatedAt());
                 LocalDate filterDate = LocalDate.parse(filters.get("createdAfter").asText());
@@ -96,21 +101,30 @@ public class Search extends BaseCommand {
                 LocalDate filterDate = LocalDate.parse(filters.get("createdBefore").asText());
                 if (!tDate.isBefore(filterDate)) return false;
             }
+
+            // Logica de filtrare keywords (dacă există keywords, trebuie să aibă măcar un match)
             if (filters.has("keywords")) {
                 List<String> keywords = new ArrayList<>();
                 filters.get("keywords").forEach(k -> keywords.add(k.asText()));
                 if (getMatchingWords(t, keywords).isEmpty()) return false;
             }
+
             if (filters.has("availableForAssignment") && filters.get("availableForAssignment").asBoolean()) {
                 if (user.getRole() != Role.DEVELOPER) return false;
                 if (t.getStatus() != Status.OPEN) return false;
-                Optional<Milestone> mOpt = system.getMilestones().stream().filter(m -> m.getTickets().contains(t.getId())).findFirst();
+
+                Optional<Milestone> mOpt = system.getMilestones().stream()
+                        .filter(m -> m.getTickets() != null && m.getTickets().contains(t.getId()))
+                        .findFirst();
+
                 if (mOpt.isEmpty() || system.isMilestoneBlocked(mOpt.get())) return false;
                 if (!system.canAccess((Developer) user, t)) return false;
             }
             return true;
         }).sorted(Comparator.comparing(Ticket::getCreatedAt).thenComparingInt(Ticket::getId)).collect(Collectors.toList());
     }
+
+    @Override
     public void execute(TicketSystem system, CommandInput input, User user, List<ObjectNode> outputs) {
         JsonNode filters = input.getFilters();
         String searchType = filters != null && filters.has("searchType") ? filters.get("searchType").asText() : "TICKET";
@@ -143,14 +157,23 @@ public class Search extends BaseCommand {
                 tn.put("solvedAt", t.getSolvedAt() == null ? "" : t.getSolvedAt());
                 tn.put("reportedBy", t.getReportedBy());
 
-                if (filters != null && filters.has("keywords")) {
-                    List<String> keywords = new ArrayList<>();
-                    filters.get("keywords").forEach(k -> keywords.add(k.asText()));
-                    List<String> matched = getMatchingWords(t, keywords);
-                    if (!matched.isEmpty()) {
-                        tn.set("matchingWords", mapper.valueToTree(matched));
+                // --- LOGICA CORECTATĂ PENTRU MATCHING WORDS ---
+                // Se afișează DOAR dacă userul este MANAGER
+                if (user.getRole() == Role.MANAGER) {
+                    List<String> matched = new ArrayList<>();
+
+                    // Calculăm cuvintele potrivite doar dacă avem filtrul 'keywords'
+                    if (filters != null && filters.has("keywords")) {
+                        List<String> keywords = new ArrayList<>();
+                        filters.get("keywords").forEach(k -> keywords.add(k.asText()));
+                        matched = getMatchingWords(t, keywords);
                     }
+
+                    // Pentru Manager, câmpul apare ÎNTOTDEAUNA, chiar dacă e listă goală
+                    tn.set("matchingWords", mapper.valueToTree(matched));
                 }
+                // Pentru Developer, câmpul NU apare deloc.
+
                 resultsArr.add(tn);
             }
         }

@@ -51,7 +51,6 @@ public class ViewMilestones extends BaseCommand {
             List<Integer> openTickets = new ArrayList<>();
             List<Integer> closedTickets = new ArrayList<>();
 
-            // IMPORTANT: milestone completion date = data când ultimul ticket a devenit CLOSED
             LocalDate lastClosedDate = null;
 
             for (Integer id : m.getTickets()) {
@@ -62,8 +61,9 @@ public class ViewMilestones extends BaseCommand {
                     openTickets.add(id);
                 } else {
                     closedTickets.add(id);
-                    LocalDate closedAt = Utils.whereClosed(t); // ia data din history pe STATUS_CHANGED -> CLOSED
-                    if (lastClosedDate == null || closedAt.isAfter(lastClosedDate)) {
+                    // Presupunem că Utils.whereClosed returnează data corectă din istoric
+                    LocalDate closedAt = Utils.whereClosed(t);
+                    if (lastClosedDate == null || (closedAt != null && closedAt.isAfter(lastClosedDate))) {
                         lastClosedDate = closedAt;
                     }
                 }
@@ -76,13 +76,22 @@ public class ViewMilestones extends BaseCommand {
 
             LocalDate due = LocalDate.parse(m.getDueDate());
 
+            // FIX: Calcul metrici înghețate pentru COMPLETED
             if (allClosed && lastClosedDate != null) {
-                // COMPLETED: overdueBy = max(0, (lastClosedDate - due) + 1)
-                long overdue = ChronoUnit.DAYS.between(due, lastClosedDate) + 1;
-                mn.put("daysUntilDue", 0);
-                mn.put("overdueBy", Math.max(0, overdue));
+                // Dacă e gata, calculăm diferența față de data închiderii
+                long diff = ChronoUnit.DAYS.between(lastClosedDate, due);
+
+                if (diff < 0) {
+                    // Overdue la finalizare
+                    mn.put("daysUntilDue", 0);
+                    mn.put("overdueBy", Math.abs(diff) + 1);
+                } else {
+                    // Finalizat la timp
+                    mn.put("daysUntilDue", diff + 1);
+                    mn.put("overdueBy", 0);
+                }
             } else {
-                // ACTIVE: daysUntilDue / overdueBy față de "now"
+                // Activ: calculăm față de now
                 long diff = ChronoUnit.DAYS.between(now, due);
                 if (diff < 0) {
                     mn.put("daysUntilDue", 0);
@@ -99,7 +108,8 @@ public class ViewMilestones extends BaseCommand {
             double ratio = m.getTickets().isEmpty() ? 0.0 : ((double) closedTickets.size() / m.getTickets().size());
             mn.put("completionPercentage", Math.round(ratio * 100.0) / 100.0);
 
-            ArrayNode rep = mapper.createArrayNode();
+            // FIX: Sortare Repartiție
+            List<ObjectNode> repartitionList = new ArrayList<>();
             if (m.getAssignedDevs() != null) {
                 for (String dev : m.getAssignedDevs()) {
                     ObjectNode dn = mapper.createObjectNode();
@@ -113,9 +123,22 @@ public class ViewMilestones extends BaseCommand {
                         }
                     }
                     dn.set("assignedTickets", mapper.valueToTree(tids));
-                    rep.add(dn);
+                    repartitionList.add(dn);
                 }
             }
+
+            // Sortare: 1. Nr tichete (crescător), 2. Username (alfabetic)
+            repartitionList.sort((a, b) -> {
+                int sizeA = a.get("assignedTickets").size();
+                int sizeB = b.get("assignedTickets").size();
+                if (sizeA != sizeB) {
+                    return Integer.compare(sizeA, sizeB);
+                }
+                return a.get("developer").asText().compareTo(b.get("developer").asText());
+            });
+
+            ArrayNode rep = mapper.createArrayNode();
+            repartitionList.forEach(rep::add);
             mn.set("repartition", rep);
 
             arr.add(mn);
@@ -123,6 +146,5 @@ public class ViewMilestones extends BaseCommand {
 
         res.set("milestones", arr);
         outputs.add(res);
-
     }
 }

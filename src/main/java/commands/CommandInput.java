@@ -2,12 +2,10 @@ package commands;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -17,20 +15,13 @@ public class CommandInput {
     private String username;
     private String timestamp;
     private JsonNode params;
-
-    // --- Fields for Milestone ---
-    private String name;        // for createMilestone
+    private String name;
     private String dueDate;
-
-    // JSON input uses "tickets", NOT "ticketIds"
     private List<Integer> tickets;
-
     private List<String> blockingFor;
     private List<String> assignedDevs;
-
     private String comment;
-
     private Integer ticketID;
-
+    private String status; // Asigura-te ca acest camp exista
     private JsonNode filters;
 }

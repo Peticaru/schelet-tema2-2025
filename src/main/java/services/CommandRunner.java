@@ -52,6 +52,7 @@ public class CommandRunner {
         commandRegistry.put("generatePerformanceReport", new GeneratePerformanceReport());
 
         // System Commands
+        commandRegistry.put("startTestingPhase", new StartTestingPhase());
         commandRegistry.put("lostInvestors", new LostInvestors());
     }
 

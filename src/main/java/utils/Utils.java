@@ -22,7 +22,6 @@ public class Utils {
     }
     public static double getMaxFrequencyValue() { return 4; }
 
-    // Priority: LOW=1, MEDIUM=2, HIGH=3, CRITICAL=4
     public static double getPriorityValue(Priority p) {
         if (p == Priority.LOW) return 1;
         if (p == Priority.MEDIUM) return 2;
@@ -42,7 +41,6 @@ public class Utils {
 
     public static double getMaxBusinessValue() { return 10; }
 
-    // CustomerDemand: LOW=1, MEDIUM=3, HIGH=6, VERY_HIGH=10
     public static double getCustomerDemandValue(CustomerDemand s) {
         if (s == CustomerDemand.LOW) return 1;
         if (s == CustomerDemand.MEDIUM) return 3;
@@ -94,11 +92,27 @@ public class Utils {
         return ticketExp + ", FULLSTACK";
     }
 
+    // FIX: Look specifically for STATUS_CHANGED to RESOLVED/CLOSED
     public static LocalDate whereClosed(Ticket t) {
         LocalDate last = null;
         for (HistoryEntry h : t.getHistory()) {
-            LocalDate d = LocalDate.parse(h.getTimestamp());
-            if (last == null || d.isAfter(last)) last = d;
+            if ("STATUS_CHANGED".equals(h.getAction()) && h.getTo() != null) {
+                String val = h.getTo();
+                if ("RESOLVED".equals(val) || "CLOSED".equals(val)) {
+                    LocalDate d = LocalDate.parse(h.getTimestamp());
+                    if (last == null || d.isAfter(last)) {
+                        last = d;
+                    }
+                }
+            }
+        }
+
+        // Fallback
+        if (last == null) {
+            for (HistoryEntry h : t.getHistory()) {
+                LocalDate d = LocalDate.parse(h.getTimestamp());
+                if (last == null || d.isAfter(last)) last = d;
+            }
         }
         return last;
     }
@@ -116,13 +130,11 @@ public class Utils {
     }
 
     public static double computePerformanceScore(Seniority s,
-                                           int closedTickets,
-                                           int highPriorityTickets,
-                                           double avgResolutionTime,
-                                           int bugTickets, int featureTickets, int uiTickets) {
-        if (closedTickets == 0) {
-            return 0.0;
-        }
+                                                 int closedTickets,
+                                                 int highPriorityTickets,
+                                                 double avgResolutionTime,
+                                                 int bugTickets, int featureTickets, int uiTickets) {
+        if (closedTickets == 0) return 0.0;
 
         double bonus = switch (s) {
             case JUNIOR -> 5.0;
@@ -178,21 +190,19 @@ public class Utils {
         double avg = scores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
         return Math.round(avg * 100.0) / 100.0;
     }
-    public static String computeStability(List<Ticket> open,
-                                    String bugRisk, String featureRisk, String uiRisk,
-                                    ObjectNode impactByType) {
 
+    public static String computeStability(List<Ticket> open,
+                                          String bugRisk, String featureRisk, String uiRisk,
+                                          ObjectNode impactByType) {
         if ("SIGNIFICANT".equals(bugRisk) || "SIGNIFICANT".equals(featureRisk) || "SIGNIFICANT".equals(uiRisk)) {
             return "UNSTABLE";
         }
-
         boolean allNegligible = "NEGLIGIBLE".equals(bugRisk) && "NEGLIGIBLE".equals(featureRisk) && "NEGLIGIBLE".equals(uiRisk);
         double featureImpact = impactByType.get("FEATURE_REQUEST").asDouble();
         double uiImpact = impactByType.get("UI_FEEDBACK").asDouble();
         boolean allImpactBelow50 =  featureImpact < 50.0 && uiImpact < 50.0;
 
         if (allNegligible && allImpactBelow50) return "STABLE";
-
         return "PARTIALLY STABLE";
     }
 
@@ -212,9 +222,12 @@ public class Utils {
     public static int daysToResolve(Ticket t) {
         LocalDate assigned = LocalDate.parse(t.getAssignedAt());
         LocalDate end = whereClosed(t);
+        if (end == null) {
+            for (HistoryEntry h : t.getHistory()) {
+                LocalDate d = LocalDate.parse(h.getTimestamp());
+                if (end == null || d.isAfter(end)) end = d;
+            }
+        }
         return (int) ChronoUnit.DAYS.between(assigned, end) + 1;
     }
-
-
-
 }
